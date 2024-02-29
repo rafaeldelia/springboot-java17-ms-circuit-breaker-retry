@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<!-- Definição de conversor personalizado -->
+	<conversionRule conversionWord="threadName"
+		converterClass="com.arphoenix.microservice.logback.ThreadNameConverter" />
+
+	<!-- Definindo os padrões de codificação e saída para o console -->
+	<appender name="Console"
+		class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>%red(%d{yyyy-MM-dd HH:mm:ss.SSS}) %blue([%threadName-ms-cache]) %red(%X{uuid}) %highlight(%-5level) %red([%logger{35}]) - %msg%n
+			</pattern>
+		</encoder>
+	</appender>
+
+	<!-- Configuração do nível raiz de log -->
+	<root level="INFO">
+		<appender-ref ref="Console" />
+	</root>
+
+	<!-- Definindo um logger específico para sua aplicação -->
+	<logger name="com.arphoenix.mscaffeine" level="DEBUG"
+		additivity="false">
+		<appender-ref ref="Console" />
+	</logger>
+</configuration>

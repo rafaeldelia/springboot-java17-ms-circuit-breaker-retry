@@ -1,0 +1,123 @@
+spring:
+  application:
+    name: ms-circuit-breaker
+  banner:
+    location: classpath:bann.txt
+server:
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
+    min-response-size: 1024
+  port: 8081
+  servlet: 
+    context-path: /ms-circuit-breaker
+    
+# Feign Client Changes
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+# Circuit Breaker configurations - Circuit will go to Open state when 3 out of 5 calls will fail.
+# Properties of Circuit Breaker
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        # registerHealthIndicator: Esta é uma propriedade muito importante se você deseja observar seu disjuntor 
+        # e depurar se as propriedades estão funcionando perfeitamente. 
+        # Ele registra um indicador de integridade no endpoint de integridade do seu aplicativo. Ele fornece as métricas!      
+        registerHealthIndicator: true
+        # slidingWindowType : Esta propriedade descreve a estratégia utilizada a partir de janelas baseadas em tempo ou contagem , 
+        # para coletar dados e tomar decisões sobre abrir ou fechar o Disjuntor. (time-based or count-based)
+        slidingWindowType: COUNT_BASED
+        # slidingWindowSize : Para janela deslizante baseada em contagem, refere-se a um número fixo ou variável 
+        # de chamadas sobre as quais as métricas são coletadas e analisadas para tomar decisões 
+        # sobre o estado do disjuntor (aberto, fechado ou semiaberto). 
+        # Na janela deslizante baseada em tempo, refere-se a um período fixo de tempo durante o qual as métricas são coletadas.
+        slidingWindowSize: 5
+        # mínimoNumberOfCalls : Especifica o número mínimo de falhas ou erros consecutivos necessários antes que 
+        # o disjuntor “desarme” ou abra. Por exemplo, se definir este valor como 5, 
+        # significa que o disjuntor só abrirá após observar um mínimo de 5 falhas ou erros consecutivos em solicitações 
+        # ao serviço. Este parâmetro evita que o disjuntor abra devido a problemas isolados ou transitórios.
+        minimumNumberOfCalls: 3
+        # failureRateThreshold: É a propriedade mais importante que determina o limite ou limite na proporção de 
+        # solicitações ou operações com falha que podem ocorrer dentro de um período de janela deslizante antes 
+        # que o disjuntor entre em ação. Este limite é frequentemente usado para tomar decisões sobre 
+        # se o disjuntor deve abrir, fechar ou passar para um estado semiaberto.
+        failureRateThreshold: 50
+        # permittedNumberOfCallsInHalfOpenState : Refere-se ao número máximo de solicitações de teste ou teste 
+        # que podem passar pelo disjuntor quando ele está semiaberto. No estado semiaberto, o disjuntor passa 
+        # de totalmente aberto para parcialmente aberto, permitindo que um número limitado de solicitações 
+        # sejam enviadas ao serviço com falha anterior para verificar se ele se recuperou.
+        permittedNumberOfCallsInHalfOpenState: 3
+        # waitDurationInOpenState : especifica quanto tempo o disjuntor deve permanecer no estado aberto 
+        # antes de passar para o estado semiaberto. Após o tempo especificado no estado aberto, 
+        # o CB transita para o estado semiaberto para testar a recuperação do serviço.
+        waitDurationInOpenState: PT30S
+        # automaticTransitionFromOpenToHalfOpenEnabled : Determina se o CB deve passar automaticamente do estado 
+        # aberto para o estado semiaberto após um período especificado, sem esperar por gatilhos ou intervenções externas. 
+        # Definimos isso como verdadeiro para a transição automática para o estado meio aberto.
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+    instances:
+      redisDistributedProxyCircuitBreaker:
+        baseConfig: default
+      # Properties of RETRY
+      retry:
+        configs:
+          default:
+            # maxAttempts : esta propriedade especifica o número máximo de novas tentativas que devem ser feitas 
+            # para uma operação com falha. Uma vez atingido esse limite, a operação é considerada falhada.
+            maxAttempts: 3
+            # waitDuration : o atraso entre cada nova tentativa, que pode ser um atraso fixo ou seguir uma estratégia de 
+            # espera exponencial. A espera exponencial aumenta o atraso a cada nova tentativa subsequente para 
+            # evitar sobrecarregar o serviço.
+            waitDuration: 10000
+            # enableExponentialBackoff: Isso permitirá o uso da estratégia de espera exponencial em vez de atraso fixo.
+            enableExponentialBackoff: true
+            # exponentialBackoffMultiplier: Este multiplicador é usado no cálculo do tempo de espera. 
+            # A fórmula é assim: wait_interval = base * (multiplier ^ (retry_count - 1).
+            exponentialBackoffMultiplier: 2
+            # Para a primeira tentativa: 
+            # tempo de espera = 1000*2^0 = 1000ms 
+            # Para a segunda tentativa: 
+            # tempo de espera = 1000*2^1 = 2000 ms 
+            # Para a terceira tentativa: 
+            # tempo de espera = 1000*2^2 = 4000 ms 
+            # Como já foram feitas 4 chamadas feita e maxAttempt for 4, 
+            # após a terceira tentativa irá parar e o disjuntor será iniciado.
+        instances:
+          redisDistributedProxyRetry:
+            baseConfig: default
+management:
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+data:
+  url: http://localhost:8080/ms-cache/v1/area/list-all
+
+logging:
+  level:
+    root: INFO
+    org:
+      springframework:
+        web: INFO
+        boot:
+          context: INFO
+        web.servlet.mvc.method.annotation.ServletRequestMethodHandlerAdapter: INFO
+        web.reactive.function.client.ExchangeFunctions: TRACE
+      hibernate:
+        SQL: DEBUG
+        engine:
+          transaction:
+            jta:
+              platform: WARN
+    com:
+      zaxxer:
+        hikari:
+          HikariConfig: DEBUG
+          HikariDataSource: TRACE
